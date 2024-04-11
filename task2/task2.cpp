@@ -9,31 +9,29 @@
 using namespace std;
 #define MOD 1000000007
 
-vector<int> bellman_ford(long long int V, vector<vector<int>>& edges, int S) {
-    vector<int> dist(V,INT_MAX);
-    vector<int> neg;
-    neg.push_back(-1);
-    dist[S]=0;
-    int e=edges.size();
-    for (int i=1;i<=V;i++){
+vector<int64_t> bellman_ford(long long int Vertices, vector<vector<int>>& edges, int Start) {
+    vector<int64_t> dist(Vertices,INT_MAX);
+    vector<int64_t> negative_cycle;
+    negative_cycle.push_back(-1);
+    dist[Start]=0;
+    int num_edges=edges.size();
+    for (int i=1;i<=Vertices;i++){
         #pragma omp parallel for 
-        for (int j=0;j<e;j++){
-            int u=edges[j][0];
-            int v=edges[j][1];
-            int d=edges[j][2];
-            if (dist[u]!=INT_MAX && (((dist[u]+(d%MOD))%MOD)<dist[v]%MOD)){
-                #pragma omp critical
-                dist[v]=(dist[u]+(d%MOD))%MOD;
+        for (int j=0;j<num_edges;j++){
+            int source=edges[j][0];
+            int destination=edges[j][1];
+            int weight=edges[j][2];
+            if ((dist[source]+weight)<dist[destination]){
+                dist[destination]=dist[source]+weight;
             }
         }
-        if ((i%1000)==0)    cout<<i<<endl;
-     }
-    for (int i=0;i<e;i++){
-        int u=edges[i][0];
-        int v=edges[i][1];
-        int d=edges[i][2];
-        if (dist[u]!=INT_MAX && (dist[u]+(d%MOD)%MOD)<dist[v]){
-            return neg;
+    }
+    for (int i=0;i<num_edges;i++){
+        int source=edges[i][0];
+        int destination=edges[i][1];
+        int weight=edges[i][2];
+        if ((dist[source]+weight)<dist[destination]){
+            return negative_cycle;
         }
     }
     return dist;
@@ -57,7 +55,6 @@ vector<vector<int>> createGraph(const string& filename) {
 }
 
 int main(int argc, char *argv[]) {
-    
     if (argc != 2) {
         cout << "Usage: " << argv[0] << " <input_filename>" << endl;
         return 1;
@@ -65,20 +62,17 @@ int main(int argc, char *argv[]) {
     string filename = argv[1];
     vector<vector<int>> graph = createGraph(filename);
     set <int> vert;
-    cout<<"hey"<<endl;
     for (const auto& edge : graph) {
         vert.insert(edge[0]);
         vert.insert(edge[1]);
     }
     long long int v=vert.size();
-    cout<<"hey"<<endl;
     for (int num_threads=2;num_threads<=2048;num_threads*=2) {
         omp_set_num_threads(num_threads);
-        auto s= chrono::high_resolution_clock::now();
-        cout<<"hey"<<endl;
-        vector<int> dist=bellman_ford(v,graph,0);
-        auto e=chrono::high_resolution_clock::now();
-        chrono::duration<double> time=e-s;
+        auto time_start= chrono::high_resolution_clock::now();  
+        vector<int64_t> dist=bellman_ford(v,graph,0);
+        auto time_end=chrono::high_resolution_clock::now();
+        chrono::duration<double> time=time_end-time_start;
         cout<<num_threads<<"\t\t"<<time.count()<<endl;
 
     }
