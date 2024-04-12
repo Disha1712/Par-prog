@@ -88,8 +88,7 @@ int main(int argc, char *argv[]) {
         chrono::duration<double> time=time_end-time_start;
         cout<<num_threads<<"\t\t"<<time.count()<<endl;
         delete [] dist;
-
-    }
+   }
     for (ll i = 0; i < num_edges; ++i)
         delete[] graph[i];
     delete[] graph;
