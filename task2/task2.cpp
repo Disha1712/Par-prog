@@ -7,32 +7,31 @@
 #include <climits>
 #include <chrono>
 using namespace std;
-#define MOD 1000000007
+typedef long long ll;
 
-int64_t* bellman_ford(long long int Vertices,int** edges, int Start,int num_edges) {
+int64_t* bellman_ford(int Vertices,int** edges, int Start,ll num_edges) {
     int64_t* dist=new int64_t[Vertices];
     int64_t* negative_cycle=new int64_t[1];
     negative_cycle[0]=-1;
     for (int i=0;i<Vertices;++i)
-        dist[i]=INT_MAX;
+        dist[i]=LLONG_MAX;
     dist[Start]=0;
+    #pragma omp parallel for collapse(2)
     for (int i=1;i<=Vertices;i++){
-        #pragma omp parallel for 
-        for (int j=0;j<num_edges;j++){
+        for (ll j=0;j<num_edges;j++){
             int source=edges[j][0];
             int destination=edges[j][1];
             int weight=edges[j][2];
-            if ((dist[source]+weight)<dist[destination]){
+            if (dist[source]!=LLONG_MAX && (dist[source]+weight)<dist[destination]){
                 dist[destination]=dist[source]+weight;
             }
         }
-        if (i%1000==0)  cout<<i<<endl;
     }
-    for (int i=0;i<num_edges;i++){
+    for (ll i=0;i<num_edges;i++){
         int source=edges[i][0];
         int destination=edges[i][1];
         int weight=edges[i][2];
-        if ((dist[source]+weight)<dist[destination]){
+        if (dist[source]!=LLONG_MAX && (dist[source]+weight)<dist[destination]){
             delete[] dist;
             return negative_cycle;
         }
@@ -40,11 +39,11 @@ int64_t* bellman_ford(long long int Vertices,int** edges, int Start,int num_edge
     return dist;
 }
 
-pair<int**,int> createGraph(const string& filename) {
+pair<int**,ll> createGraph(const string& filename) {
     ifstream inputFile(filename);
     vector<vector<int>> graph;
     string line;
-    int num_edges=0;
+    ll num_edges=0;
     while (getline(inputFile,line)) {
         int source,destination,weight;
         istringstream iss(line);
@@ -72,15 +71,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     string filename = argv[1];
-    pair<int**,int> graphAndEdge=createGraph(filename);
+    pair<int**,ll> graphAndEdge=createGraph(filename);
     int** graph=graphAndEdge.first;
     int num_edges=graphAndEdge.second;
     set <int>vert;
-    for (int i=0;i<num_edges;i++){
+    for (ll i=0;i<num_edges;i++){
         vert.insert(graph[i][0]);
         vert.insert(graph[i][1]);
     }
-    long long int v=vert.size();
+    int v=vert.size();
     for (int num_threads=2;num_threads<=2048;num_threads*=2) {
         omp_set_num_threads(num_threads);
         auto time_start= chrono::high_resolution_clock::now(); 
@@ -91,7 +90,7 @@ int main(int argc, char *argv[]) {
         delete [] dist;
 
     }
-    for (int i = 0; i < num_edges; ++i)
+    for (ll i = 0; i < num_edges; ++i)
         delete[] graph[i];
     delete[] graph;
     return 0;
