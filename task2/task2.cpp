@@ -90,10 +90,6 @@ int main(int argc, char *argv[]) {
         omp_set_num_threads(num_threads);
         auto time_start= chrono::high_resolution_clock::now(); 
         ll* dist=bellman_ford(v,graph,0,num_edges);
-	for (int i=0;i<v;i++){
-	   cout<<dist[i]<<"  "; 
-        }
-	cout<<endl;
         auto time_end=chrono::high_resolution_clock::now();
         chrono::duration<double> time=time_end-time_start;
         cout<<num_threads<<"\t\t"<<time.count()<<endl;
