@@ -18,19 +18,23 @@ ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges) {
         dist[i]=LLONG_MAX;
     dist[Start]=0;
     int ival=0;
+    bool flag=true;
     #pragma omp parallel for reduction(+:ival)
     for (ll i=1;i<=Vertices;i++){
-        bool flag=false;
-        for (ll j=0;j<num_edges;j++){
-            ll source=edges[j][0];
-            ll destination=edges[j][1];
-            ll weight=edges[j][2];
-            if (dist[source]!=LLONG_MAX && ((dist[source]+(weight%mod))%mod)<dist[destination]){
-                dist[destination]=(dist[source]+(weight%mod))%mod;
-		flag=true;
+        if (flag){
+            flag=false;
+            for (ll j=0;j<num_edges;j++){
+                ll source=edges[j][0];
+                ll destination=edges[j][1];
+                ll weight=edges[j][2];
+                if (dist[source]!=LLONG_MAX && ((dist[source]+(weight%mod))%mod)<dist[destination]){
+                    dist[destination]=(dist[source]+(weight%mod))%mod;
+	        	flag=true;
+                }
             }
+            ival++;
+       
         }
-        if (flag)	ival++;
     }
     cout<<"Values of i for which there is a change in distance array: "<<ival<<endl;
     for (ll i=0;i<num_edges;i++){
