@@ -11,10 +11,10 @@ using namespace std;
 #define mod 1000000007
 
 ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges) {
-    ll* dist=new ll[Vertices];
+    ll* dist=new ll[Vertices+1];
     ll* negative_cycle=new ll[1];
     negative_cycle[0]=-1;
-    for (int i=0;i<Vertices;++i)
+    for (int i=0;i<=Vertices;++i)
         dist[i]=LLONG_MAX;
     dist[Start]=0;
     int ival=0;
@@ -22,19 +22,18 @@ ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges) {
     #pragma omp parallel for reduction(+:ival)
     for (ll i=1;i<=Vertices;i++){
         if (flag){
-            flag=false;
-            for (ll j=0;j<num_edges;j++){
-                ll source=edges[j][0];
-                ll destination=edges[j][1];
-                ll weight=edges[j][2];
-                if (dist[source]!=LLONG_MAX && ((dist[source]+(weight%mod))%mod)<dist[destination]){
-                    dist[destination]=(dist[source]+(weight%mod))%mod;
-	        	flag=true;
-                }
-            }
-            ival++;
-       
-        }
+        	flag=false;
+        	for (ll j=0;j<num_edges;j++){
+            	ll source=edges[j][0];
+            	ll destination=edges[j][1];
+            	ll weight=edges[j][2];
+	            if (dist[source]!=LLONG_MAX && ((dist[source]+(weight%mod))%mod)<dist[destination]){
+                	dist[destination]=(dist[source]+(weight%mod))%mod;
+			flag=true;
+         	   }
+        	}
+      	}
+        if (flag)	ival++;
     }
     cout<<"Values of i for which there is a change in distance array: "<<ival<<endl;
     for (ll i=0;i<num_edges;i++){
@@ -90,15 +89,14 @@ int main(int argc, char *argv[]) {
         vert.insert(graph[i][1]);
     }
     ll v=vert.size();
-    for (int num_threads=2;num_threads<=2048;num_threads*=2) {
-        omp_set_num_threads(num_threads);
-        auto time_start= chrono::high_resolution_clock::now(); 
-        ll* dist=bellman_ford(v,graph,0,num_edges);
-        auto time_end=chrono::high_resolution_clock::now();
-        chrono::duration<double> time=time_end-time_start;
-        cout<<num_threads<<"\t\t"<<time.count()<<endl;
-        delete [] dist;
-   }
+   int num_cores=omp_get_num_procs();
+   omp_set_num_threads(num_cores);
+   auto time_start= chrono::high_resolution_clock::now(); 
+   ll* dist=bellman_ford(v,graph,1,num_edges);
+    auto time_end=chrono::high_resolution_clock::now();
+    chrono::duration<double> time=time_end-time_start;
+    cout<<time.count()<<endl;
+    delete [] dist;
     for (ll i = 0; i < num_edges; ++i)
         delete[] graph[i];
     delete[] graph;
