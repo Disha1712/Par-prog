@@ -6,36 +6,56 @@
 #include <set>
 #include <climits>
 #include <chrono>
+#include <algorithm>
 typedef long long int ll;
 using namespace std;
 #define mod 1000000007
-
-ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges) {
+ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges){
     ll* dist=new ll[Vertices+1];
     ll* negative_cycle=new ll[1];
     negative_cycle[0]=-1;
     for (int i=0;i<=Vertices;++i)
         dist[i]=LLONG_MAX;
     dist[Start]=0;
-    int ival=0;
-    bool flag=true;
-    #pragma omp parallel for reduction(+:ival)
-    for (ll i=1;i<=Vertices;i++){
-        if (flag){
-        	flag=false;
-        	for (ll j=0;j<num_edges;j++){
-            	ll source=edges[j][0];
-            	ll destination=edges[j][1];
-            	ll weight=edges[j][2];
-	            if (dist[source]!=LLONG_MAX && ((dist[source]+(weight%mod))%mod)<dist[destination]){
-                	dist[destination]=(dist[source]+(weight%mod))%mod;
-			flag=true;
-         	   }
-        	}
-      	}
-        if (flag)	ival++;
+    vector<ll> worklist;
+    worklist.push_back(Start);  
+    while (!worklist.empty()) {
+        vector<ll> next_worklist;
+        #pragma omp parallel
+        {
+            vector<ll> local_next_worklist;
+            #pragma omp for nowait
+            for (size_t i=0;i<worklist.size();++i){
+                ll u=worklist[i];
+                for (ll j=0;j<num_edges;++j){
+                    if (edges[j][0]==u){
+                        ll source=edges[j][0];
+                        ll destination=edges[j][1];
+                        ll weight=edges[j][2];
+                        bool updated=false;
+                        #pragma omp critical
+                        {
+                            if (dist[source]!=LLONG_MAX && ((dist[source]+(weight % mod))%mod)<dist[destination]){
+                                dist[destination]=(dist[source]+(weight%mod))%mod;
+                                updated=true;
+                            }
+                        }
+                        if (updated) {
+                            local_next_worklist.push_back(destination);
+                        }
+                    }
+                }
+            }
+            #pragma omp critical
+            {
+                next_worklist.insert(next_worklist.end(),local_next_worklist.begin(),local_next_worklist.end());
+            }
+        }
+        // Remove duplicates from next_worklist
+        sort(next_worklist.begin(),next_worklist.end());
+        next_worklist.erase(unique(next_worklist.begin(),next_worklist.end()),next_worklist.end()); 
+        worklist=next_worklist;
     }
-    cout<<"Values of i for which there is a change in distance array: "<<ival<<endl;
     for (ll i=0;i<num_edges;i++){
         ll source=edges[i][0];
         ll destination=edges[i][1];
@@ -92,10 +112,10 @@ int main(int argc, char *argv[]) {
    int num_cores=omp_get_num_procs();
    omp_set_num_threads(num_cores);
    auto time_start= chrono::high_resolution_clock::now(); 
-   ll* dist=bellman_ford(v,graph,1,num_edges);
+   ll* dist=bellman_ford(v,graph,0,num_edges);
     auto time_end=chrono::high_resolution_clock::now();
     chrono::duration<double> time=time_end-time_start;
-    cout<<time.count()<<endl;
+    cout << "Execution time: " << time.count() << " seconds" << endl;
     delete [] dist;
     for (ll i = 0; i < num_edges; ++i)
         delete[] graph[i];
