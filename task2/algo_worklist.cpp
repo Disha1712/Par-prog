@@ -1,22 +1,3 @@
-#include <iostream>
-#include <omp.h>
-#include <fstream>
-#include <vector>
-#include <sstream>
-#include <set>
-#include <climits>
-#include <chrono>
-#include <algorithm>
-typedef long long int ll;
-using namespace std;
-#define mod 1000000007
-ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges){
-    ll* dist=new ll[Vertices+1];
-    ll* negative_cycle=new ll[1];
-    negative_cycle[0]=-1;
-    for (int i=0;i<=Vertices;++i)
-        dist[i]=LLONG_MAX;
-    dist[Start]=0;
     vector<ll> worklist;
     worklist.push_back(Start);  
     while (!worklist.empty()) {
@@ -24,7 +5,7 @@ ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges){
         #pragma omp parallel
         {
             vector<ll> local_next_worklist;
-            #pragma omp for nowait
+            #pragma omp for schedule(dynamic,64) nowait
             for (size_t i=0;i<worklist.size();++i){
                 ll u=worklist[i];
                 for (ll j=0;j<num_edges;++j){
@@ -33,10 +14,11 @@ ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges){
                         ll destination=edges[j][1];
                         ll weight=edges[j][2];
                         bool updated=false;
+                        ll new_distance =(dist[source]+(weight%mod))%mod;
                         #pragma omp critical
                         {
-                            if (dist[source]!=LLONG_MAX && ((dist[source]+(weight % mod))%mod)<dist[destination]){
-                                dist[destination]=(dist[source]+(weight%mod))%mod;
+                            if (dist[source]!=LLONG_MAX && new_distance<dist[destination]){
+                                dist[destination]=new_distance;
                                 updated=true;
                             }
                         }
@@ -109,14 +91,21 @@ int main(int argc, char *argv[]) {
         vert.insert(graph[i][1]);
     }
     ll v=vert.size();
-   int num_cores=omp_get_num_procs();
-   omp_set_num_threads(num_cores);
-   auto time_start= chrono::high_resolution_clock::now(); 
-   ll* dist=bellman_ford(v,graph,0,num_edges);
+
+    omp_set_num_threads(1);
+    auto time_start= chrono::high_resolution_clock::now(); 
+    ll* dist=bellman_ford(v,graph,0,num_edges);
     auto time_end=chrono::high_resolution_clock::now();
     chrono::duration<double> time=time_end-time_start;
-    cout << "Execution time: " << time.count() << " seconds" << endl;
-    delete [] dist;
+    cout << "Execution time for serial : " << time.count() << " seconds" << endl;
+    delete[] dist;
+    omp_set_num_threads(16);
+    time_start= chrono::high_resolution_clock::now(); 
+    dist=bellman_ford(v,graph,0,num_edges);
+    time_end=chrono::high_resolution_clock::now();
+    time=time_end-time_start;
+    cout << "Execution time for 16 threads : " << time.count() << " seconds" << endl;
+    delete[] dist;
     for (ll i = 0; i < num_edges; ++i)
         delete[] graph[i];
     delete[] graph;
