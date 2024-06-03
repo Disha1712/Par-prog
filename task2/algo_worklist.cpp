@@ -1,10 +1,32 @@
+#include <iostream>
+#include <omp.h>
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <set>
+#include <climits>
+#include <atomic>
+#include <chrono>
+#include <algorithm>
+typedef long long int ll;
+using namespace std;
+#define mod 1000000007
+
+ll* bellman_ford(ll Vertices,ll** edges, int Start,ll num_edges){
+    ll* dist=new ll[Vertices+1];
+    ll* negative_cycle=new ll[1];
+    negative_cycle[0]=-1;
+    #pragma omp parallel for
+    for (int i=0;i<=Vertices;++i)
+        dist[i]=LLONG_MAX;
+    dist[Start]=0;   
     vector<ll> worklist;
     worklist.push_back(Start);  
     while (!worklist.empty()) {
-        vector<ll> next_worklist;
+        vector<atomic<bool>> next_worklist_flags(Vertices);
+        vector<ll> local_next_worklist;
         #pragma omp parallel
         {
-            vector<ll> local_next_worklist;
             #pragma omp for schedule(dynamic,64) nowait
             for (size_t i=0;i<worklist.size();++i){
                 ll u=worklist[i];
@@ -13,30 +35,37 @@
                         ll source=edges[j][0];
                         ll destination=edges[j][1];
                         ll weight=edges[j][2];
-                        bool updated=false;
-                        ll new_distance =(dist[source]+(weight%mod))%mod;
-                        #pragma omp critical
-                        {
-                            if (dist[source]!=LLONG_MAX && new_distance<dist[destination]){
+                        ll new_distance=(dist[source]+(weight%mod))%mod;
+                        
+                        if (dist[source]!=LLONG_MAX) {
+                            ll current_distance;
+                            bool updated=false;
+                            #pragma omp atomic read
+                            current_distance=dist[destination];
+                            if (new_distance<current_distance) {
+                                #pragma omp atomic write
                                 dist[destination]=new_distance;
                                 updated=true;
                             }
-                        }
-                        if (updated) {
-                            local_next_worklist.push_back(destination);
+                            if (updated){
+                                local_next_worklist.push_back(destination);
+                             }
                         }
                     }
                 }
             }
-            #pragma omp critical
-            {
-                next_worklist.insert(next_worklist.end(),local_next_worklist.begin(),local_next_worklist.end());
+        }
+        for (ll node:local_next_worklist) {
+                next_worklist_flags[node]=true;
+        }
+        worklist.clear();
+        for (ll i=0;i<Vertices;++i){
+            if (next_worklist_flags[i].load(memory_order_relaxed)){
+                worklist.push_back(i);
             }
         }
-        // Remove duplicates from next_worklist
-        sort(next_worklist.begin(),next_worklist.end());
-        next_worklist.erase(unique(next_worklist.begin(),next_worklist.end()),next_worklist.end()); 
-        worklist=next_worklist;
+        sort(worklist.begin(),worklist.end());
+        worklist.erase(unique(worklist.begin(),worklist.end()),worklist.end());
     }
     for (ll i=0;i<num_edges;i++){
         ll source=edges[i][0];
@@ -94,16 +123,9 @@ int main(int argc, char *argv[]) {
 
     omp_set_num_threads(1);
     auto time_start= chrono::high_resolution_clock::now(); 
-    ll* dist=bellman_ford(v,graph,0,num_edges);
+    ll* dist=bellman_ford(v,graph,1,num_edges);
     auto time_end=chrono::high_resolution_clock::now();
     chrono::duration<double> time=time_end-time_start;
-    cout << "Execution time for serial : " << time.count() << " seconds" << endl;
-    delete[] dist;
-    omp_set_num_threads(16);
-    time_start= chrono::high_resolution_clock::now(); 
-    dist=bellman_ford(v,graph,0,num_edges);
-    time_end=chrono::high_resolution_clock::now();
-    time=time_end-time_start;
     cout << "Execution time for 16 threads : " << time.count() << " seconds" << endl;
     delete[] dist;
     for (ll i = 0; i < num_edges; ++i)
